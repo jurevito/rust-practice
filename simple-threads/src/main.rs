@@ -1,37 +1,65 @@
 use std::vec;
 use std::thread;
-use std::time::Duration;
 use rand::Rng;
-use time;
+use std::sync::Arc;
+use std::time::Instant;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 fn main() {
-    /* 
-    let size = 100_000;
+    
+    let size = 1000_000_000;
     let mut vals: Vec<i32> = vec![0; size];
 
+    // Fill vector with random numbers.
     for i in 0..vals.len() {
-        vals[i] = rand::thread_rng().gen_range(0..100);
+        vals[i] = rand::thread_rng().gen_range(0..3);
     }
 
-
+    let start = Instant::now();
     let sum: i32 = vals.iter().sum();
+    let elapsed = start.elapsed();
 
-    //let num = rand::thread_rng().gen_range(0..101);
-    println!("Random number: {}", vals[0]);
-    println!("Sum: {}", sum);
-    */
+    println!("Sum: {}, Time: {} ms", sum, elapsed.as_millis());
 
-    let handle = thread::spawn(|| {
-        for i in 1..5 {
-            println!("Number {} from thread 1.", i);
-            thread::sleep(Duration::from_millis(5));
-        }
-    });
+    let start = Instant::now();
+    let n_threads = size / 100_000_000;
+    let mut handles = vec![];
 
-    for i in 1..5 {
-        println!("Number {} from thread 2.", i);
-        thread::sleep(Duration::from_millis(5));
+    let sum = Arc::new(AtomicUsize::new(0));
+    let vals = Arc::new(vals);
+
+    for id in 0..n_threads {
+        let sum = Arc::clone(&sum);
+        let vals = Arc::clone(&vals);
+
+        let handle = thread::spawn(move || {
+            let mut loc_sum: usize = 0;
+
+            let offset = size/n_threads;
+            let from = id*offset;
+            let until = if id == n_threads-1 {size} else {from+offset};
+
+            for i in from..until {
+                loc_sum += vals[i] as usize;
+            }
+            
+            // Atomically increment sum.
+            let current_sum = sum.load(Ordering::Acquire);
+            sum.store(current_sum + loc_sum, Ordering::Release);
+        });
+
+        handles.push(handle);
     }
 
-    handle.join().unwrap();
+    // Wait for all threads to finish.
+    for handle in handles {
+        handle.join().unwrap();
+    }
+
+    let elapsed = start.elapsed();
+    println!("Sum: {}, Time: {} ms, # Threads: {}", 
+        (*sum).load(Ordering::Acquire), 
+        elapsed.as_millis(), 
+        n_threads
+    );
 }
