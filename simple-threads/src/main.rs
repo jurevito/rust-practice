@@ -5,29 +5,22 @@ use std::sync::Arc;
 use std::time::Instant;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-fn main() {
-    
-    let size = 1000_000_000;
-    let mut vals: Vec<i32> = vec![0; size];
+/*
+Creates a long vector of random numbers and
+sums them using multiple threads.
+*/
 
-    // Fill vector with random numbers.
-    for i in 0..vals.len() {
-        vals[i] = rand::thread_rng().gen_range(0..3);
-    }
+fn sum_seq(vals: &Vec<i32>) -> usize {
+    (vals.iter().sum::<i32>()) as usize
+}
 
-    let start = Instant::now();
-    let sum: i32 = vals.iter().sum();
-    let elapsed = start.elapsed();
+fn sum_conc(vals: Arc<Vec<i32>>, n_threads: usize) -> usize {
 
-    println!("Sum: {}, Time: {} ms", sum, elapsed.as_millis());
-
-    let start = Instant::now();
-    let n_threads = size / 100_000_000;
+    let n = vals.len();
     let mut handles = vec![];
 
     let sum = Arc::new(AtomicUsize::new(0));
-    let vals = Arc::new(vals);
-
+    
     for id in 0..n_threads {
         let sum = Arc::clone(&sum);
         let vals = Arc::clone(&vals);
@@ -35,17 +28,16 @@ fn main() {
         let handle = thread::spawn(move || {
             let mut loc_sum: usize = 0;
 
-            let offset = size/n_threads;
+            let offset = n/n_threads;
             let from = id*offset;
-            let until = if id == n_threads-1 {size} else {from+offset};
+            let until = if id == n_threads-1 {n} else {from+offset};
 
             for i in from..until {
                 loc_sum += vals[i] as usize;
             }
-            
+
             // Atomically increment sum.
-            let current_sum = sum.load(Ordering::Acquire);
-            sum.store(current_sum + loc_sum, Ordering::Release);
+            sum.fetch_add(loc_sum, Ordering::Relaxed);
         });
 
         handles.push(handle);
@@ -56,9 +48,33 @@ fn main() {
         handle.join().unwrap();
     }
 
-    let elapsed = start.elapsed();
+    return sum.load(Ordering::Relaxed);
+}
+
+fn main() {
+    
+    let n = 1_000_000_000;
+    let mut vals: Vec<i32> = vec![0; n];
+
+    for i in 0..vals.len() {
+        vals[i] = rand::thread_rng().gen_range(0..3);
+    }
+
+    let start_time = Instant::now();
+    let sum = sum_seq(&vals);
+    let elapsed = start_time.elapsed();
+
+    println!("Sum: {}, Time: {} ms", sum, elapsed.as_millis());
+
+    let n_threads = n / 200_000_000;
+
+    let start_time = Instant::now();
+    let vals = Arc::new(vals);
+    let sum = sum_conc(vals.clone(), n_threads);
+    let elapsed = start_time.elapsed();
+
     println!("Sum: {}, Time: {} ms, # Threads: {}", 
-        (*sum).load(Ordering::Acquire), 
+        sum, 
         elapsed.as_millis(), 
         n_threads
     );
