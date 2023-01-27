@@ -9,10 +9,7 @@ fn main() {
     let actions = parse_actions(actions_str);
     let mut state = parse_state(state_str);
 
-    println!("{:?}", actions);
-    println!("{:?}", state);
-
-    let result = execute_actions(&mut state, actions);
+    let result = execute_actions(&mut state, &actions);
     println!("The final state message is \"{result}\".");
 }
 
@@ -24,7 +21,7 @@ struct Action {
 }
 
 fn parse_state(state_str: &str) -> HashMap<u32, Vec<char>> {
-    let mut tmpr: Vec<Vec<char>> = state_str
+    let mut parsed_state: Vec<Vec<char>> = state_str
         .split("\r\n")
         .map(|line| {
             let filtered_chars: Vec<char> = line
@@ -38,7 +35,8 @@ fn parse_state(state_str: &str) -> HashMap<u32, Vec<char>> {
         })
         .collect();
 
-    let labels = tmpr
+    // Remove last row that contains column names.
+    let labels = parsed_state
         .pop()
         .unwrap()
         .iter()
@@ -46,8 +44,8 @@ fn parse_state(state_str: &str) -> HashMap<u32, Vec<char>> {
         .collect::<Vec<u32>>();
 
     let mut state: HashMap<u32, Vec<char>> = HashMap::new();
-    for row in tmpr.iter().rev() {
-        for (label, elem) in labels.iter().zip(row) {
+    for row in parsed_state.iter().rev() {
+        for (label, elem) in labels.iter().zip(row.iter()) {
             if *elem != ' ' {
                 match state.entry(*label) {
                     Entry::Vacant(e) => {
@@ -80,7 +78,7 @@ fn parse_actions(actions_str: &str) -> Vec<Action> {
     actions
 }
 
-fn execute_actions(state: &mut HashMap<u32, Vec<char>>, actions: Vec<Action>) -> String {
+fn execute_actions(state: &mut HashMap<u32, Vec<char>>, actions: &Vec<Action>) -> String {
     for action in actions {
         let from_column = state.get_mut(&action.from).unwrap();
 
@@ -94,6 +92,7 @@ fn execute_actions(state: &mut HashMap<u32, Vec<char>>, actions: Vec<Action>) ->
     let mut column_labels: Vec<u32> = state.keys().cloned().collect();
     column_labels.sort();
 
+    // Get the top crates from each column.
     let result: String = column_labels
         .iter()
         .map(|k| match state.entry(*k) {
@@ -105,9 +104,6 @@ fn execute_actions(state: &mut HashMap<u32, Vec<char>>, actions: Vec<Action>) ->
 
     result
 }
-
-// TODO:
-// 2. Rewrite parts of code into idiomatic Rust.
 
 #[cfg(test)]
 mod tests {
@@ -206,7 +202,7 @@ move 1 from 1 to 2";
             (3, vec!['P']),
         ]);
 
-        let result = execute_actions(&mut state, actions);
+        let result = execute_actions(&mut state, &actions);
         assert_eq!("CMZ", result);
     }
 }
