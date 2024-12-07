@@ -6,11 +6,6 @@ struct Equation {
     numbers: Vec<i32>,
 }
 
-enum Operator {
-    Add,
-    Multiply,
-}
-
 fn main() {
     let content = fs::read_to_string("input.txt").expect("Should be able to read the file");
     let mut result = 0;
@@ -20,16 +15,15 @@ fn main() {
             if let Some((test_str, numbers_str)) = line.split_once(": ") {
                 let mut eq = Equation {
                     test: test_str.trim().parse().unwrap(),
-                    numbers: numbers_str.split(" ").map(|n| n.trim().parse().unwrap()).collect(),
+                    numbers: numbers_str
+                        .split(" ")
+                        .map(|n| n.trim().parse().unwrap())
+                        .collect(),
                 };
 
                 if is_calibrated(&mut eq) {
                     result += eq.test;
                 }
-
-                println!("{:?}", eq);
-                
-                
             }
         }
     }
@@ -46,7 +40,7 @@ fn is_calibrated(eq: &mut Equation) -> bool {
     let mut index: usize = 1;
     while index < eq.numbers.len() {
         let mut new_scores: Vec<i32> = vec![];
-    
+
         for score in &scores {
             let add_score = score + eq.numbers[index];
             let mult_score = score * eq.numbers[index];
