@@ -54,9 +54,6 @@ fn find_password(rotations: Vec<Rotation>) -> u32 {
 
     for rotation in rotations.iter() {
         current = apply_rotation(current, rotation);
-        // if current > 100 {
-        //     println!("{}: {:?}", current, rotation);
-        // }
         if current == 0 {
             count += 1;
         }
